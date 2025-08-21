@@ -1,0 +1,13 @@
+requests
+python-dotenv
+docling
+streamlit
+langchain
+langchain-huggingface
+langchain-chroma
+chromadb
+sentence-transformers
+transformers
+langchain-groq
+streamlit-pdf-viewer
+PyMuPDF
