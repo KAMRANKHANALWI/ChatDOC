@@ -11,3 +11,4 @@ transformers
 langchain-groq
 streamlit-pdf-viewer
 PyMuPDF
+pysqlite3-binary; sys_platform == "linux"

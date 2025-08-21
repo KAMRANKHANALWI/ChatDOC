@@ -1,5 +1,16 @@
 # enhanced_chat_app.py
 
+# Conditional SQLite fix for Streamlit Cloud (Linux only)
+import sys
+import platform
+
+if platform.system() == "Linux":
+    try:
+        import pysqlite3
+        sys.modules["sqlite3"] = sys.modules.pop("pysqlite3")
+    except ImportError:
+        pass  # pysqlite3 not available, use system sqlite3
+
 import streamlit as st
 import chromadb
 import os
