@@ -291,7 +291,10 @@ def generate_ai_response(query: str, search_results: List[Dict]) -> str:
     """Generate AI response based on search results."""
     try:
         llm = ChatGroq(
-            model="llama3-8b-8192", temperature=0.1, api_key=os.getenv("GROQ_API_KEY")
+            # model="llama3-8b-8192", temperature=0.1, api_key=os.getenv("GROQ_API_KEY")
+            model="llama-3.1-8b-instant",
+            temperature=0.1,
+            api_key=os.getenv("GROQ_API_KEY"),
         )
 
         # Prepare context from search results

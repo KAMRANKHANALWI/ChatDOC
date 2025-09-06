@@ -7,6 +7,7 @@ import platform
 if platform.system() == "Linux":
     try:
         import pysqlite3
+
         sys.modules["sqlite3"] = sys.modules.pop("pysqlite3")
     except ImportError:
         pass  # pysqlite3 not available, use system sqlite3
@@ -236,7 +237,10 @@ def generate_smart_collection_name(
 def load_models():
     """Initialize language model and embedding model."""
     llm = ChatGroq(
-        model="llama3-8b-8192", temperature=0.1, api_key=os.getenv("GROQ_API_KEY")
+        # model="llama3-8b-8192", temperature=0.1, api_key=os.getenv("GROQ_API_KEY")
+        model="llama-3.1-8b-instant",
+        temperature=0.1,
+        api_key=os.getenv("GROQ_API_KEY"),
     )
     embedding_model = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL_NAME)
     return llm, embedding_model
@@ -881,10 +885,52 @@ def main():
 
         return
 
-    # Display chat messages
-    for message in st.session_state.messages:
+    # # Display chat messages
+    # for message in st.session_state.messages:
+    #     with st.chat_message(message["role"]):
+    #         st.markdown(message["content"])
+
+    # Display chat messages with persistent sources
+    for i, message in enumerate(st.session_state.messages):
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
+
+            # Display sources for assistant messages
+            if message["role"] == "assistant" and "sources" in message:
+                # Group sources by filename and collect pages
+                source_groups = {}
+                for source in message["sources"]:
+                    filename = source["filename"]
+                    pages = (
+                        source["pages"].strip("[]").replace("'", "").replace(" ", "")
+                    )
+                    if pages:
+                        page_nums = [p.strip() for p in pages.split(",") if p.strip()]
+                        if filename not in source_groups:
+                            source_groups[filename] = set()
+                        source_groups[filename].update(page_nums)
+
+                if source_groups:
+                    with st.expander(
+                        f"📚 Sources ({len(source_groups)} documents)", expanded=False
+                    ):
+                        source_lines = []
+                        for filename, pages in source_groups.items():
+                            if pages:
+                                sorted_pages = sorted(
+                                    pages,
+                                    key=lambda x: (
+                                        int(x) if x.isdigit() else float("inf")
+                                    ),
+                                )
+                                pages_str = ", ".join(sorted_pages)
+                                source_lines.append(
+                                    f"**{filename}** - Pages {pages_str}"
+                                )
+                            else:
+                                source_lines.append(f"**{filename}**")
+
+                        st.markdown("\n\n".join(source_lines))
 
     # Chat input
     if user_query := st.chat_input("Ask questions about your documents..."):
@@ -909,11 +955,57 @@ def main():
                         st.write(f"**Pages:** {result['pages']}")
                         st.write(result["content"])
 
+        # Store assistant message with sources FIRST
+        assistant_message = {
+            "role": "assistant",
+            "content": "",  # Empty for now
+            "sources": search_results if search_results else [],
+        }
+
         # Generate response
         with st.chat_message("assistant"):
             response = generate_chat_response(st.session_state.messages, context)
 
-        st.session_state.messages.append({"role": "assistant", "content": response})
+            # Display sources immediately after response
+            if search_results:
+                # Group sources by filename and collect pages
+                source_groups = {}
+                for source in search_results:
+                    filename = source["filename"]
+                    pages = (
+                        source["pages"].strip("[]").replace("'", "").replace(" ", "")
+                    )
+                    if pages:
+                        page_nums = [p.strip() for p in pages.split(",") if p.strip()]
+                        if filename not in source_groups:
+                            source_groups[filename] = set()
+                        source_groups[filename].update(page_nums)
+
+                if source_groups:
+                    with st.expander(
+                        f"📚 Sources ({len(source_groups)} documents)", expanded=False
+                    ):
+                        source_lines = []
+                        for filename, pages in source_groups.items():
+                            if pages:
+                                sorted_pages = sorted(
+                                    pages,
+                                    key=lambda x: (
+                                        int(x) if x.isdigit() else float("inf")
+                                    ),
+                                )
+                                pages_str = ", ".join(sorted_pages)
+                                source_lines.append(
+                                    f"**{filename}** - Pages {pages_str}"
+                                )
+                            else:
+                                source_lines.append(f"**{filename}**")
+
+                        st.markdown("\n\n".join(source_lines))
+
+        # Update the message with the actual response
+        assistant_message["content"] = response
+        st.session_state.messages.append(assistant_message)
 
 
 if __name__ == "__main__":
